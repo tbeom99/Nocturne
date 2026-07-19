@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Nocturne — 수면 기억 실험</title>
+<style>
+  :root {
+    --bg-deep: #14152a;
+    --bg-panel: #1c1e38;
+    --bg-panel-raised: #242747;
+    --line: #34375f;
+    --text-primary: #eae9f5;
+    --text-dim: #9795b8;
+    --amber: #e8a662;
+    --amber-dim: #6b5636;
+    --rem-violet: #8b7ff0;
+    --good: #6fcf97;
+    --bad: #e8746a;
+    --mono: 'SF Mono', 'Consolas', 'Menlo', monospace;
+    --sys: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    background: radial-gradient(ellipse at top, #1e2040 0%, var(--bg-deep) 55%);
+    color: var(--text-primary);
+    font-family: var(--sys);
+    min-height: 100vh;
+    padding-bottom: 110px;
+  }
+  header {
+    padding: 28px 16px 18px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: 50%;
+    transform: translateX(-50%);
+    width: 500px; height: 200px;
+    background: radial-gradient(ellipse, rgba(232,166,98,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .wordmark { font-size: 12px; letter-spacing: 0.18em; color: var(--amber); text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
+  h1 { font-size: 19px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 12px; color: var(--text-dim); }
+  .wave-strip { height: 32px; margin: 16px auto 0; max-width: 320px; opacity: 0.7; }
+
+  nav {
+    display: flex; gap: 6px; padding: 0 12px; max-width: 480px; margin: 16px auto 0;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  nav button {
+    flex: 1; background: var(--bg-panel); border: 1px solid var(--line); color: var(--text-dim);
+    padding: 11px 6px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+    white-space: nowrap; transition: all 0.2s; min-width: 68px;
+  }
+  nav button.active { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+
+  main { max-width: 480px; margin: 18px auto; padding: 0 14px; }
+  .panel { background: var(--bg-panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-bottom: 14px; }
+  .panel-title { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 14px; font-weight: 700; }
+
+  textarea {
+    width: 100%; background: var(--bg-deep); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text-primary); padding: 12px; font-family: var(--mono); font-size: 16px; min-height: 130px; resize: vertical;
+  }
+  input[type=text], input[type=number], input[type=time], select {
+    width: 100%; background: var(--bg-deep); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text-primary); padding: 12px; font-family: var(--sys); font-size: 16px;
+  }
+  label.field-label { display: block; font-size: 12px; color: var(--text-dim); margin: 12px 0 6px; }
+
+  .btn {
+    background: var(--amber); color: #241a0e; border: none; padding: 14px 18px; border-radius: 10px;
+    font-weight: 700; font-size: 15px; cursor: pointer; transition: transform 0.1s, opacity 0.2s;
+    min-height: 48px;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--text-primary); }
+  .btn-danger { background: transparent; border: 1px solid var(--bad); color: var(--bad); }
+  .btn-sm { padding: 9px 14px; font-size: 13px; min-height: 40px; }
+  .btn-row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .btn-row .btn, .btn-row button { flex: 1; }
+
+  .stat-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .stat { flex: 1; background: var(--bg-panel-raised); border-radius: 10px; padding: 12px; text-align: center; }
+  .stat-num { font-family: var(--mono); font-size: 19px; font-weight: 700; color: var(--amber); }
+  .stat-label { font-size: 10px; color: var(--text-dim); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .word-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-family: var(--mono); font-size: 12px; background: var(--bg-panel-raised); border: 1px solid var(--line); padding: 5px 10px; border-radius: 999px; color: var(--text-dim); }
+  .chip.exp { border-color: var(--amber); color: var(--amber); }
+  .chip.ctrl { border-color: var(--rem-violet); color: var(--rem-violet); }
+
+  .segment-block { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 10px; background: var(--bg-panel-raised); }
+  .segment-head { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 13px; margin-bottom: 8px; }
+  .segment-head .tag { font-size: 10px; padding: 2px 8px; border-radius: 6px; background: var(--amber-dim); color: var(--amber); font-family: var(--sys); font-weight: 700; }
+  .segment-head .tag.ctrl-tag { background: rgba(139,127,240,0.15); color: var(--rem-violet); }
+
+  .timeline { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .timeline-item {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--bg-deep); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px;
+  }
+  .timeline-item.selected { border-color: var(--amber); background: var(--amber-dim); }
+  .timeline-item .cycle-label { font-size: 13px; font-weight: 700; }
+  .timeline-item .cycle-time { font-family: var(--mono); font-size: 15px; color: var(--amber); }
+  .timeline-item .cycle-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  .learn-card { text-align: center; padding: 34px 16px; }
+  .learn-word { font-size: 34px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 6px; }
+  .learn-ko { font-size: 15px; color: var(--text-dim); margin-bottom: 18px; }
+  .learn-progress { font-family: var(--mono); font-size: 12px; color: var(--text-dim); margin-bottom: 16px; }
+  .learn-bar { height: 4px; background: var(--bg-deep); border-radius: 2px; overflow: hidden; margin: 0 auto 20px; max-width: 240px; }
+  .learn-bar-fill { height: 100%; background: var(--amber); transition: width 0.3s; }
+
+  .test-card { text-align: center; padding: 28px 16px; }
+  .test-word { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 4px; }
+  .test-progress { font-family: var(--mono); font-size: 12px; color: var(--text-dim); margin-bottom: 20px; }
+  .test-input { text-align: center; font-size: 17px; padding: 14px; }
+
+  .result-row { display: grid; grid-template-columns: 22px 1fr auto 46px; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .result-row:last-child { border-bottom: none; }
+  .result-num { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .result-word { font-family: var(--mono); font-weight: 700; }
+  .result-word.is-correct { color: var(--good); }
+  .result-word.is-wrong { color: var(--bad); }
+  .result-ko { font-size: 12px; color: var(--text-dim); text-align: right; }
+  .result-tag { font-size: 10px; color: var(--amber); font-weight: 700; text-align: right; white-space: nowrap; }
+
+  .review-card { padding: 20px 0; }
+  .review-word { text-align: center; margin-bottom: 16px; }
+  .review-word .en { font-size: 22px; font-weight: 700; }
+  .review-row { display: flex; justify-content: space-between; font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .review-row .lbl { color: var(--text-dim); }
+  .review-btns { display: flex; gap: 8px; margin-top: 18px; }
+  .review-btns button { flex: 1; padding: 14px; border-radius: 10px; font-weight: 700; font-size: 14px; border: none; cursor: pointer; }
+  .review-yes { background: var(--good); color: #0f2818; }
+  .review-no { background: var(--bg-panel-raised); color: var(--text-dim); border: 1px solid var(--line) !important; }
+
+  .empty-state { text-align: center; padding: 36px 20px; color: var(--text-dim); font-size: 13px; }
+
+  .session-log-item { padding: 12px; background: var(--bg-panel-raised); border-radius: 10px; margin-bottom: 8px; font-size: 13px; }
+  .session-log-item .date { font-family: var(--mono); color: var(--text-dim); font-size: 11px; }
+  .session-log-item .counts { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+  .session-log-item .compare { display: flex; gap: 14px; margin-top: 8px; }
+  .session-log-item .compare div { flex: 1; }
+  .compare-bar { height: 6px; border-radius: 3px; background: var(--bg-deep); overflow: hidden; margin-top: 4px; }
+  .compare-bar-fill { height: 100%; }
+
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--bg-panel-raised); border: 1px solid var(--amber); padding: 10px 18px; border-radius: 10px;
+    font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; max-width: 90%; text-align: center;
+  }
+  .toast.show { opacity: 1; }
+
+  .hint { font-size: 12px; color: var(--text-dim); line-height: 1.6; margin-top: 10px; }
+
+  .playback-status { text-align: center; padding: 20px; }
+  .playback-status .big-num { font-family: var(--mono); font-size: 38px; font-weight: 700; color: var(--amber); }
+  .wakelock-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--good); margin-top: 8px; }
+  .wakelock-badge.off { color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark">Nocturne</div>
+  <h1>수면 청각 단서 기억 실험</h1>
+  <div class="subtitle">TMR (Targeted Memory Reactivation) · 개인 실험 도구</div>
+  <svg class="wave-strip" viewBox="0 0 360 36" preserveAspectRatio="none">
+    <path d="M0,18 C20,4 40,4 60,18 C80,32 100,32 120,18 C140,4 160,4 180,18 C200,32 220,32 240,18 C260,4 280,4 300,18 C320,32 340,32 360,18" fill="none" stroke="#8b7ff0" stroke-width="1.5" opacity="0.5"/>
+    <path d="M0,18 C15,26 30,26 45,18 C60,10 75,10 90,18 C105,26 120,26 135,18 C150,10 165,10 180,18 C195,26 210,26 225,18 C240,10 255,10 270,18 C285,26 300,26 315,18 C330,10 345,10 360,18" fill="none" stroke="#e8a662" stroke-width="1.5"/>
+  </svg>
+</header>
+
+<nav id="nav">
+  <button data-tab="words" class="active">단어</button>
+  <button data-tab="learn">학습</button>
+  <button data-tab="session">재생 설계</button>
+  <button data-tab="test">테스트</button>
+  <button data-tab="log">기록</button>
+</nav>
+
+<main>
+
+  <!-- WORDS TAB -->
+  <section id="tab-words">
+    <div class="panel">
+      <div class="panel-title">단어 목록 (180개 권장)</div>
+      <textarea id="wordInput" placeholder="한 줄에 하나씩: 영어단어,뜻&#10;예)&#10;ambiguous,애매한&#10;resilient,회복력 있는"></textarea>
+      <div class="btn-row">
+        <button class="btn" id="saveWords">저장</button>
+        <button class="btn btn-ghost" id="loadSample">예시 채우기</button>
+      </div>
+      <div class="hint">쉼표(,)로 단어와 뜻 구분. 다의어라도 뜻은 하나만 등록해줘 (테스트 채점도 뜻 하나 기준). 저장하면 기기에 보관돼.</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">현재 저장된 단어</div>
+      <div class="stat-row">
+        <div class="stat"><div class="stat-num" id="wordCount">0</div><div class="stat-label">총 단어</div></div>
+        <div class="stat"><div class="stat-num" id="voiceStatus">-</div><div class="stat-label">TTS 음성</div></div>
+      </div>
+      <div class="word-chip-list" id="wordChips"></div>
+    </div>
+  </section>
+
+  <!-- LEARN TAB -->
+  <section id="tab-learn" style="display:none">
+    <div class="panel" id="learnSetupPanel">
+      <div class="panel-title">학습 모드</div>
+      <div class="hint">단어를 하나씩 넘기며 TTS 발음을 자동으로 들려줘. 이때 들은 소리가 오늘 밤 실험군 재생 때 쓰이는 것과 같은 음성·속도라 "단어 = 소리" 연합이 형성돼. 최소 한 번은 이 모드로 전체를 외워줘.</div>
+      <div class="btn-row">
+        <button class="btn" id="startLearn">학습 시작 (전체 단어)</button>
+      </div>
+    </div>
+    <div class="panel" id="learnRunPanel" style="display:none">
+      <div class="learn-card">
+        <div class="learn-progress" id="learnProgress">1 / 180</div>
+        <div class="learn-bar"><div class="learn-bar-fill" id="learnBarFill" style="width:0%"></div></div>
+        <div class="learn-word" id="learnWord">word</div>
+        <div class="learn-ko" id="learnKo">뜻</div>
+        <div class="btn-row" style="justify-content:center">
+          <button class="btn btn-ghost btn-sm" id="learnReplay">다시 듣기</button>
+          <button class="btn btn-ghost btn-sm" id="learnPause">일시정지</button>
+          <button class="btn btn-danger btn-sm" id="learnStop">중단</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="learnDonePanel" style="display:none">
+      <div class="empty-state">학습 완료 — 이제 재생 설계 탭에서 오늘 밤 세션을 만들어줘.</div>
+    </div>
+  </section>
+
+  <!-- SESSION DESIGN TAB -->
+  <section id="tab-session" style="display:none">
+    <div class="panel">
+      <div class="panel-title">오늘 밤 세션 설계</div>
+      <label class="field-label">실험군 (수면 중 재생할 단어 수)</label>
+      <input type="number" id="expCount" value="20" min="1" max="80">
+      <label class="field-label">대조군 (재생 안 하지만 비교용으로 테스트에 포함할 단어 수)</label>
+      <input type="number" id="ctrlCount" value="20" min="1" max="80">
+      <div class="hint">실험군과 겹치지 않게 나머지 단어 중에서 무작위로 뽑아. 필요하면 대조군 수를 실험군과 다르게 정해도 돼.</div>
+
+      <label class="field-label">눕는 시각 (취침 시작 기준)</label>
+      <input type="time" id="bedTime">
+      <div class="hint">
+        절대 재생 시각을 미리 정확히 맞히긴 어려워서, 눕는 시각에 일반적 수면 구조(입면 약 15분 + 약 90분 주기, 전반부는 N3 비중↑ 후반부는 N2·REM 비중↑)를 더해 각 비렘수면 시점의 예상 시각을 근사로 계산해. 개인차가 있는 참고용 수치니 실제 각성 상태를 봐가며 조정해줘.
+      </div>
+      <div class="timeline" id="cycleTimeline"></div>
+
+      <div class="btn-row">
+        <button class="btn" id="generateSession">오늘 밤 세션 생성</button>
+      </div>
+    </div>
+
+    <div class="panel" id="sessionPreview" style="display:none">
+      <div class="panel-title">생성된 세션</div>
+      <div class="stat-row">
+        <div class="stat"><div class="stat-num" id="expTag">20</div><div class="stat-label">실험군 개수</div></div>
+        <div class="stat"><div class="stat-num" id="ctrlTag">20</div><div class="stat-label">대조군 개수</div></div>
+      </div>
+      <div class="hint" id="selectedCycleInfo"></div>
+      <div class="hint">실험 오염을 막기 위해 어떤 단어가 실험군/대조군인지는 지금 보여주지 않아. 기상 후 테스트 결과에서 확인할 수 있어.</div>
+      <div class="btn-row">
+        <button class="btn" id="startPlayback">예약 시작 (예상 시각에 자동 재생)</button>
+      </div>
+    </div>
+
+    <div class="panel" id="playbackPanel" style="display:none">
+      <div class="panel-title">재생 예약 상태</div>
+      <div class="playback-status">
+        <div class="big-num" id="playbackCounter">대기 중</div>
+        <div class="hint" id="playbackWord">예상 시각까지 화면을 켜둔 채로 기기를 옆에 둬. 이 탭을 벗어나거나 화면이 꺼지면 예약이 취소될 수 있어.</div>
+        <div class="wakelock-badge" id="wakeLockBadge">● 화면 유지 중</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEST TAB -->
+  <section id="tab-test" style="display:none">
+    <div class="panel" id="testSetupPanel">
+      <div class="panel-title">기상 후 테스트</div>
+      <div class="hint">저장된 세션(실험군+대조군)을 무작위 순서로 테스트해. 뜻을 직접 입력하는 주관식이야.</div>
+      <div class="btn-row"><button class="btn" id="startTest">테스트 시작</button></div>
+    </div>
+    <div class="panel" id="testRunPanel" style="display:none">
+      <div class="test-card">
+        <div class="test-progress" id="testProgress">1 / 40</div>
+        <div class="test-word" id="testWord">word</div>
+        <input type="text" class="test-input" id="testAnswer" placeholder="뜻을 입력하세요">
+        <div class="btn-row" style="justify-content:center; margin-top:20px">
+          <button class="btn" id="submitAnswer">제출</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="reviewPanel" style="display:none">
+      <div class="panel-title">오답 재검토</div>
+      <div class="hint">완전히 일치하진 않지만 사실상 맞는 답이면 "인정"을 눌러줘. 예: 조사 차이, 띄어쓰기 차이 등.</div>
+      <div class="review-card">
+        <div class="test-progress" id="reviewProgress">1 / 5</div>
+        <div class="review-word"><div class="en" id="reviewEn">word</div></div>
+        <div class="review-row"><span class="lbl">정답</span><span id="reviewKo">뜻</span></div>
+        <div class="review-row"><span class="lbl">내 답</span><span id="reviewUserAns">답</span></div>
+        <div class="review-btns">
+          <button class="review-no" id="reviewNo">그대로 오답</button>
+          <button class="review-yes" id="reviewYes">인정 (정답 처리)</button>
+        </div>
+      </div>
+      <div class="btn-row"><button class="btn btn-ghost" id="skipReview">재검토 전체 건너뛰기</button></div>
+    </div>
+    <div class="panel" id="testResultPanel" style="display:none">
+      <div class="panel-title">테스트 결과</div>
+      <div class="stat-row">
+        <div class="stat"><div class="stat-num" id="expAccuracy">-</div><div class="stat-label">실험군 정답률</div></div>
+        <div class="stat"><div class="stat-num" id="ctrlAccuracy">-</div><div class="stat-label">대조군 정답률</div></div>
+      </div>
+      <div id="resultList"></div>
+      <div class="btn-row"><button class="btn" id="saveSession">이 세션 기록 저장</button></div>
+    </div>
+  </section>
+
+  <!-- LOG TAB -->
+  <section id="tab-log" style="display:none">
+    <div class="panel">
+      <div class="panel-title">누적 기록</div>
+      <div id="logList"><div class="empty-state">아직 저장된 세션이 없어.</div></div>
+    </div>
+    <div class="panel">
+      <div class="btn-row"><button class="btn btn-danger" id="clearAll">모든 데이터 초기화</button></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const toast = (msg) => {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+};
+
+const STORE_KEY = 'nocturne_words_v2';
+const SESSION_KEY = 'nocturne_session_v2';
+const LOG_KEY = 'nocturne_log_v2';
+
+function loadWords() { try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; } }
+function saveWordsToStorage(w) { localStorage.setItem(STORE_KEY, JSON.stringify(w)); }
+function loadSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { return null; } }
+function saveSessionToStorage(s) { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+function loadLog() { try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch { return []; } }
+function saveLogToStorage(l) { localStorage.setItem(LOG_KEY, JSON.stringify(l)); }
+
+let words = loadWords();
+let currentSession = loadSession();
+let wakeLock = null;
+
+// ---- tabs ----
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    ['words','learn','session','test','log'].forEach(t => {
+      $('tab-'+t).style.display = (t === btn.dataset.tab) ? 'block' : 'none';
+    });
+    if (btn.dataset.tab === 'log') renderLog();
+    if (btn.dataset.tab === 'session') renderCycleTimeline();
+  });
+});
+
+// ---- TTS ----
+function checkVoices() {
+  const voices = speechSynthesis.getVoices();
+  const enVoice = voices.find(v => v.lang.startsWith('en'));
+  $('voiceStatus').textContent = enVoice ? '가능' : '확인중';
+}
+speechSynthesis.onvoiceschanged = checkVoices;
+checkVoices();
+
+function speak(text) {
+  return new Promise(resolve => {
+    const voices = speechSynthesis.getVoices();
+    const enVoice = voices.find(v => v.lang.startsWith('en-US')) || voices.find(v => v.lang.startsWith('en'));
+    const u = new SpeechSynthesisUtterance(text);
+    if (enVoice) u.voice = enVoice;
+    u.lang = 'en-US';
+    u.rate = 0.95;
+    u.onend = resolve;
+    u.onerror = resolve;
+    speechSynthesis.speak(u);
+  });
+}
+
+// ---- Wake Lock (재생 중에만) ----
+async function acquireWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      $('wakeLockBadge').textContent = '● 화면 유지 중';
+      $('wakeLockBadge').classList.remove('off');
+      wakeLock.addEventListener('release', () => {
+        $('wakeLockBadge').textContent = '○ 화면 유지 해제됨';
+        $('wakeLockBadge').classList.add('off');
+      });
+    } else {
+      $('wakeLockBadge').textContent = '○ 이 브라우저는 화면 유지를 지원 안 함 — 수동으로 화면을 켜둬';
+      $('wakeLockBadge').classList.add('off');
+    }
+  } catch (e) {
+    $('wakeLockBadge').textContent = '○ 화면 유지 실패 — 수동으로 화면을 켜둬';
+    $('wakeLockBadge').classList.add('off');
+  }
+}
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release(); wakeLock = null; }
+}
+
+// ---- words tab ----
+function renderWords() {
+  $('wordCount').textContent = words.length;
+  const container = $('wordChips');
+  container.innerHTML = '';
+  if (words.length === 0) {
+    container.innerHTML = '<div class="empty-state">아직 저장된 단어가 없어. 위에 목록을 입력하고 저장해줘.</div>';
+    return;
+  }
+  words.forEach(w => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = w.en;
+    container.appendChild(chip);
+  });
+}
+
+$('saveWords').addEventListener('click', () => {
+  const raw = $('wordInput').value.trim();
+  if (!raw) { toast('입력된 내용이 없어'); return; }
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  const parsed = lines.map(line => {
+    const [en, ...rest] = line.split(',');
+    return { en: en.trim(), ko: rest.join(',').trim() };
+  }).filter(w => w.en);
+  words = parsed;
+  saveWordsToStorage(words);
+  renderWords();
+  toast(`${words.length}개 단어 저장 완료`);
+});
+
+$('loadSample').addEventListener('click', () => {
+  $('wordInput').value = [
+    'ambiguous,애매한','resilient,회복력 있는','meticulous,꼼꼼한','plausible,그럴듯한',
+    'candid,솔직한','arbitrary,임의적인','coherent,일관된','tedious,지루한',
+    'subtle,미묘한','vivid,생생한','tentative,잠정적인','profound,심오한',
+    'inevitable,불가피한','ambivalent,양가적인','redundant,불필요한',
+    'coincide,동시에 일어나다','underlying,근본적인','discrepancy,불일치',
+    'plausibility,타당성','deteriorate,악화되다'
+  ].join('\n');
+  toast('예시 20개 채움 — 180개까지 직접 추가해줘');
+});
+
+renderWords();
+
+// ---- learn tab ----
+let learnQueue = [];
+let learnIndex = 0;
+let learnPaused = false;
+let learnStopped = false;
+
+$('startLearn').addEventListener('click', () => {
+  if (words.length === 0) { toast('먼저 단어를 저장해줘'); return; }
+  learnQueue = [...words];
+  learnIndex = 0;
+  learnPaused = false;
+  learnStopped = false;
+  $('learnSetupPanel').style.display = 'none';
+  $('learnDonePanel').style.display = 'none';
+  $('learnRunPanel').style.display = 'block';
+  runLearnStep();
+});
+
+async function runLearnStep() {
+  if (learnStopped || learnIndex >= learnQueue.length) {
+    $('learnRunPanel').style.display = 'none';
+    $('learnDonePanel').style.display = learnStopped ? 'none' : 'block';
+    $('learnSetupPanel').style.display = 'block';
+    return;
+  }
+  const w = learnQueue[learnIndex];
+  $('learnProgress').textContent = `${learnIndex+1} / ${learnQueue.length}`;
+  $('learnBarFill').style.width = `${Math.round(100*(learnIndex)/learnQueue.length)}%`;
+  $('learnWord').textContent = w.en;
+  $('learnKo').textContent = w.ko;
+  await speak(w.en);
+  if (learnPaused || learnStopped) return;
+  await new Promise(r=>setTimeout(r, 700));
+  if (learnPaused || learnStopped) return;
+  learnIndex++;
+  runLearnStep();
+}
+
+$('learnReplay').addEventListener('click', () => {
+  const w = learnQueue[learnIndex];
+  if (w) speak(w.en);
+});
+$('learnPause').addEventListener('click', () => {
+  learnPaused = !learnPaused;
+  $('learnPause').textContent = learnPaused ? '재개' : '일시정지';
+  if (!learnPaused) runLearnStep();
+});
+$('learnStop').addEventListener('click', () => {
+  learnStopped = true;
+  speechSynthesis.cancel();
+  $('learnRunPanel').style.display = 'none';
+  $('learnSetupPanel').style.display = 'block';
+  toast('학습 중단됨');
+});
+
+// ---- session design tab: cycle timeline ----
+const CYCLE_OFFSETS_MIN = [
+  { n: 1, offset: 15 + 75,  desc: 'N3 비중 최대' },
+  { n: 2, offset: 15 + 165, desc: 'N3 비중 감소 시작' },
+  { n: 3, offset: 15 + 255, desc: 'N2 위주' },
+  { n: 4, offset: 15 + 345, desc: 'N2 위주, REM 근접 구간' }
+];
+let selectedCycle = 1;
+let cycleTimeStrings = {};
+
+function renderCycleTimeline() {
+  const bedTimeStr = $('bedTime').value;
+  const container = $('cycleTimeline');
+  if (!bedTimeStr) {
+    container.innerHTML = '<div class="hint">눕는 시각을 입력하면 비렘수면 시점별 예상 시각이 표시돼.</div>';
+    return;
+  }
+  const [h, m] = bedTimeStr.split(':').map(Number);
+  const base = new Date();
+  base.setHours(h, m, 0, 0);
+
+  container.innerHTML = CYCLE_OFFSETS_MIN.map(c => {
+    const t = new Date(base.getTime() + c.offset*60000);
+    const hh = String(t.getHours()).padStart(2,'0');
+    const mm = String(t.getMinutes()).padStart(2,'0');
+    cycleTimeStrings[c.n] = `${hh}:${mm}`;
+    return `
+      <div class="timeline-item ${c.n===selectedCycle?'selected':''}" data-cycle="${c.n}">
+        <div>
+          <div class="cycle-label">${c.n}차 비렘수면</div>
+          <div class="cycle-desc">${c.desc} · 취침 후 약 ${c.offset}분</div>
+        </div>
+        <div class="cycle-time">${hh}:${mm}</div>
+      </div>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.timeline-item').forEach(el => {
+    el.addEventListener('click', () => {
+      selectedCycle = parseInt(el.dataset.cycle);
+      renderCycleTimeline();
+    });
+  });
+}
+$('bedTime').addEventListener('change', renderCycleTimeline);
+renderCycleTimeline();
+
+$('generateSession').addEventListener('click', () => {
+  if (words.length < 2) { toast('단어를 먼저 저장해줘'); return; }
+  if (!$('bedTime').value) { toast('눕는 시각을 입력해줘'); return; }
+  const expCount = Math.min(parseInt($('expCount').value)||20, words.length - 1);
+  const ctrlCount = Math.min(parseInt($('ctrlCount').value)||20, words.length - expCount);
+
+  const shuffled = [...words].sort(()=>Math.random()-0.5);
+  const exp = shuffled.slice(0, expCount);
+  const ctrl = shuffled.slice(expCount, expCount + ctrlCount);
+
+  const cycleInfo = { ...CYCLE_OFFSETS_MIN.find(c=>c.n===selectedCycle), timeStr: cycleTimeStrings[selectedCycle] };
+
+  currentSession = {
+    id: Date.now(),
+    date: new Date().toISOString(),
+    nremCycle: selectedCycle,
+    targetTime: cycleTimeStrings[selectedCycle],
+    bedTime: $('bedTime').value,
+    exp, ctrl,
+    played: false,
+    tested: false,
+    results: null
+  };
+  saveSessionToStorage(currentSession);
+
+  $('expTag').textContent = exp.length;
+  $('ctrlTag').textContent = ctrl.length;
+  $('selectedCycleInfo').textContent = `선택된 시점: ${selectedCycle}차 비렘수면 (${cycleInfo.desc}) · 예상 시각: ${cycleInfo.timeStr}`;
+  $('sessionPreview').style.display = 'block';
+  toast('세션 생성 완료');
+});
+
+$('startPlayback').addEventListener('click', async () => {
+  if (!currentSession) return;
+  $('playbackPanel').style.display = 'block';
+  await acquireWakeLock();
+
+  const [th, tm] = currentSession.targetTime.split(':').map(Number);
+  let target = new Date();
+  target.setHours(th, tm, 0, 0);
+  if (target.getTime() < Date.now()) target.setDate(target.getDate() + 1); // 자정 넘어가는 경우 보정
+
+  $('playbackWord').textContent = `예상 시각 ${currentSession.targetTime}까지 대기 중. 화면을 켜둔 채로 기기를 옆에 둬.`;
+
+  const countdownTimer = setInterval(() => {
+    const diffMs = target.getTime() - Date.now();
+    if (diffMs <= 0) {
+      $('playbackCounter').textContent = '재생 중';
+      clearInterval(countdownTimer);
+      return;
+    }
+    const totalSec = Math.floor(diffMs/1000);
+    const hh = String(Math.floor(totalSec/3600)).padStart(2,'0');
+    const mm = String(Math.floor((totalSec%3600)/60)).padStart(2,'0');
+    const ss = String(totalSec%60).padStart(2,'0');
+    $('playbackCounter').textContent = `${hh}:${mm}:${ss}`;
+  }, 1000);
+
+  const waitMs = Math.max(0, target.getTime() - Date.now());
+  await new Promise(r=>setTimeout(r, waitMs));
+  clearInterval(countdownTimer);
+
+  const list = currentSession.exp;
+  for (let i = 0; i < list.length; i++) {
+    $('playbackCounter').textContent = `${i+1} / ${list.length}`;
+    $('playbackWord').textContent = list[i].en;
+    await speak(list[i].en);
+    await new Promise(r=>setTimeout(r, 300));
+  }
+  $('playbackWord').textContent = '재생 완료';
+  currentSession.played = true;
+  saveSessionToStorage(currentSession);
+  releaseWakeLock();
+  toast('재생 완료 — 다시 자도 좋아. 기상 후 테스트 탭에서 확인해줘');
+});
+
+// ---- test tab ----
+let testQueue = [];
+let testIndex = 0;
+let testResults = [];
+let reviewQueue = [];
+let reviewIndex = 0;
+
+$('startTest').addEventListener('click', () => {
+  if (!currentSession) { toast('먼저 재생 설계 탭에서 세션을 생성해줘'); return; }
+  testQueue = [
+    ...currentSession.exp.map(w=>({...w, group:'exp'})),
+    ...currentSession.ctrl.map(w=>({...w, group:'ctrl'}))
+  ].sort(()=>Math.random()-0.5);
+  testIndex = 0;
+  testResults = [];
+  $('testSetupPanel').style.display = 'none';
+  $('testResultPanel').style.display = 'none';
+  $('reviewPanel').style.display = 'none';
+  $('testRunPanel').style.display = 'block';
+  showTestWord();
+});
+
+function showTestWord() {
+  const w = testQueue[testIndex];
+  $('testProgress').textContent = `${testIndex+1} / ${testQueue.length}`;
+  $('testWord').textContent = w.en;
+  $('testAnswer').value = '';
+  $('testAnswer').focus();
+}
+
+function submitAnswer() {
+  const w = testQueue[testIndex];
+  const userAns = $('testAnswer').value.trim();
+  const isCorrect = userAns !== '' && w.ko.replace(/\s/g,'') === userAns.replace(/\s/g,'');
+  testResults.push({ en: w.en, ko: w.ko, userAns, group: w.group, correct: isCorrect, fixed: false });
+  testIndex++;
+  if (testIndex < testQueue.length) {
+    showTestWord();
+  } else {
+    startReviewOrFinish();
+  }
+}
+$('submitAnswer').addEventListener('click', submitAnswer);
+$('testAnswer').addEventListener('keydown', e => { if (e.key === 'Enter') submitAnswer(); });
+
+function startReviewOrFinish() {
+  $('testRunPanel').style.display = 'none';
+  reviewQueue = testResults.filter(r => !r.correct && r.userAns !== '');
+  if (reviewQueue.length === 0) {
+    finishTest();
+    return;
+  }
+  reviewIndex = 0;
+  $('reviewPanel').style.display = 'block';
+  showReviewItem();
+}
+
+function showReviewItem() {
+  const r = reviewQueue[reviewIndex];
+  $('reviewProgress').textContent = `${reviewIndex+1} / ${reviewQueue.length}`;
+  $('reviewEn').textContent = r.en;
+  $('reviewKo').textContent = r.ko;
+  $('reviewUserAns').textContent = r.userAns;
+}
+
+$('reviewYes').addEventListener('click', () => {
+  const r = reviewQueue[reviewIndex];
+  r.correct = true;
+  r.fixed = true;
+  advanceReview();
+});
+$('reviewNo').addEventListener('click', advanceReview);
+$('skipReview').addEventListener('click', finishTest);
+
+function advanceReview() {
+  reviewIndex++;
+  if (reviewIndex < reviewQueue.length) {
+    showReviewItem();
+  } else {
+    finishTest();
+  }
+}
+
+function finishTest() {
+  $('reviewPanel').style.display = 'none';
+  $('testRunPanel').style.display = 'none';
+  $('testResultPanel').style.display = 'block';
+
+  const expResults = testResults.filter(r=>r.group==='exp');
+  const ctrlResults = testResults.filter(r=>r.group==='ctrl');
+  const expAcc = expResults.length ? Math.round(100*expResults.filter(r=>r.correct).length/expResults.length) : 0;
+  const ctrlAcc = ctrlResults.length ? Math.round(100*ctrlResults.filter(r=>r.correct).length/ctrlResults.length) : 0;
+
+  $('expAccuracy').textContent = expAcc + '%';
+  $('ctrlAccuracy').textContent = ctrlAcc + '%';
+
+  $('resultList').innerHTML = testResults.map((r, i) => `
+    <div class="result-row">
+      <span class="result-num">${i+1}</span>
+      <span class="result-word ${r.correct ? 'is-correct' : 'is-wrong'}">${r.en}</span>
+      <span class="result-ko">${r.ko}</span>
+      <span class="result-tag">${r.group==='exp' ? '실험군' : ''}</span>
+    </div>
+  `).join('');
+
+  currentSession.tested = true;
+  currentSession.results = { expAcc, ctrlAcc, expCount: currentSession.exp.length, ctrlCount: currentSession.ctrl.length, detail: testResults };
+  saveSessionToStorage(currentSession);
+}
+
+$('saveSession').addEventListener('click', () => {
+  const log = loadLog();
+  log.unshift(currentSession);
+  saveLogToStorage(log);
+  toast('세션 기록에 저장됨');
+  currentSession = null;
+  localStorage.removeItem(SESSION_KEY);
+  $('testSetupPanel').style.display = 'block';
+  $('testResultPanel').style.display = 'none';
+  $('sessionPreview').style.display = 'none';
+  $('playbackPanel').style.display = 'none';
+});
+
+// ---- log tab ----
+function renderLog() {
+  const log = loadLog();
+  const container = $('logList');
+  if (log.length === 0) {
+    container.innerHTML = '<div class="empty-state">아직 저장된 세션이 없어.</div>';
+    return;
+  }
+  const cycleNames = {1:'1차 비렘',2:'2차 비렘',3:'3차 비렘',4:'4차 비렘'};
+  container.innerHTML = log.map(s => {
+    const d = new Date(s.date);
+    const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const expAcc = s.results?.expAcc ?? 0;
+    const ctrlAcc = s.results?.ctrlAcc ?? 0;
+    const expCount = s.results?.expCount ?? s.exp?.length ?? 0;
+    const ctrlCount = s.results?.ctrlCount ?? s.ctrl?.length ?? 0;
+    return `
+      <div class="session-log-item">
+        <div class="date">${dateStr} · ${cycleNames[s.nremCycle]||'-'} · 눕기 ${s.bedTime||'-'}</div>
+        <div class="counts">실험군 ${expCount}개 · 대조군 ${ctrlCount}개</div>
+        <div class="compare">
+          <div>
+            <span style="color:var(--amber); font-size:11px">실험군 ${expAcc}%</span>
+            <div class="compare-bar"><div class="compare-bar-fill" style="width:${expAcc}%; background:var(--amber)"></div></div>
+          </div>
+          <div>
+            <span style="color:var(--rem-violet); font-size:11px">대조군 ${ctrlAcc}%</span>
+            <div class="compare-bar"><div class="compare-bar-fill" style="width:${ctrlAcc}%; background:var(--rem-violet)"></div></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+$('clearAll').addEventListener('click', () => {
+  if (!confirm('모든 단어, 세션, 기록이 삭제돼. 계속할까?')) return;
+  localStorage.removeItem(STORE_KEY);
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(LOG_KEY);
+  words = [];
+  currentSession = null;
+  renderWords();
+  renderLog();
+  toast('초기화 완료');
+});
+
+// restore session preview if exists
+if (currentSession) {
+  $('expTag').textContent = currentSession.exp.length;
+  $('ctrlTag').textContent = currentSession.ctrl.length;
+  $('sessionPreview').style.display = 'block';
+  if (currentSession.bedTime) $('bedTime').value = currentSession.bedTime;
+  if (currentSession.nremCycle) selectedCycle = currentSession.nremCycle;
+  renderCycleTimeline();
+  if (currentSession.targetTime) {
+    const cInfo = CYCLE_OFFSETS_MIN.find(c=>c.n===currentSession.nremCycle);
+    $('selectedCycleInfo').textContent = `선택된 시점: ${currentSession.nremCycle}차 비렘수면 (${cInfo?.desc||''}) · 예상 시각: ${currentSession.targetTime}`;
+  }
+}
+</script>
+
+</body>
+</html>
