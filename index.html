@@ -199,7 +199,7 @@
         <button class="btn" id="saveWords">저장</button>
         <button class="btn btn-ghost" id="loadSample">예시 채우기</button>
       </div>
-      <div class="hint">쉼표(,)로 단어와 뜻 구분. 다의어라도 뜻은 하나만 등록해줘 (테스트 채점도 뜻 하나 기준). 저장하면 기기에 보관돼.</div>
+      <div class="hint">쉼표(,)로 단어와 뜻 구분. 다의어는 뜻을 세미콜론(;)으로 여러 개 등록 가능 (예: bank,은행;강둑). 테스트에서는 그중 하나만 맞혀도 정답 처리돼. 저장하면 기기에 보관돼.</div>
     </div>
     <div class="panel">
       <div class="panel-title">현재 저장된 단어</div>
@@ -461,9 +461,10 @@ $('loadSample').addEventListener('click', () => {
     'subtle,미묘한','vivid,생생한','tentative,잠정적인','profound,심오한',
     'inevitable,불가피한','ambivalent,양가적인','redundant,불필요한',
     'coincide,동시에 일어나다','underlying,근본적인','discrepancy,불일치',
-    'plausibility,타당성','deteriorate,악화되다'
+    'plausibility,타당성','deteriorate,악화되다',
+    'bank,은행;강둑','bear,곰;참다','fair,공정한;박람회'
   ].join('\n');
-  toast('예시 20개 채움 — 180개까지 직접 추가해줘');
+  toast('예시 23개 채움 (다의어 예시 포함) — 180개까지 직접 추가해줘');
 });
 
 renderWords();
@@ -679,7 +680,9 @@ function showTestWord() {
 function submitAnswer() {
   const w = testQueue[testIndex];
   const userAns = $('testAnswer').value.trim();
-  const isCorrect = userAns !== '' && w.ko.replace(/\s/g,'') === userAns.replace(/\s/g,'');
+  const koOptions = w.ko.split(';').map(s=>s.trim().replace(/\s/g,'')).filter(Boolean);
+  const userAnsNorm = userAns.replace(/\s/g,'');
+  const isCorrect = userAns !== '' && koOptions.includes(userAnsNorm);
   testResults.push({ en: w.en, ko: w.ko, userAns, group: w.group, correct: isCorrect, fixed: false });
   testIndex++;
   if (testIndex < testQueue.length) {
@@ -752,6 +755,7 @@ function finishTest() {
   `).join('');
 
   currentSession.tested = true;
+  currentSession.testCompletedAt = new Date().toISOString();
   currentSession.results = { expAcc, ctrlAcc, expCount: currentSession.exp.length, ctrlCount: currentSession.ctrl.length, detail: testResults };
   saveSessionToStorage(currentSession);
 }
@@ -779,7 +783,7 @@ function renderLog() {
   }
   const cycleNames = {1:'1차 비렘',2:'2차 비렘',3:'3차 비렘',4:'4차 비렘'};
   container.innerHTML = log.map(s => {
-    const d = new Date(s.date);
+    const d = new Date(s.testCompletedAt || s.date);
     const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
     const expAcc = s.results?.expAcc ?? 0;
     const ctrlAcc = s.results?.ctrlAcc ?? 0;
