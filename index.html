@@ -272,6 +272,8 @@
       </div>
       <div class="hint" id="selectedCycleInfo"></div>
       <div class="hint">실험 오염을 막기 위해 어떤 단어가 실험군/대조군인지는 지금 보여주지 않아. 기상 후 테스트 결과에서 확인할 수 있어.</div>
+      <label class="field-label">비고 (학습 방식, 음량, 특이사항 등 자유롭게)</label>
+      <textarea id="sessionNote" style="min-height:70px"></textarea>
       <div class="btn-row">
         <button class="btn" id="startPlayback">예약 시작 (예상 시각에 자동 재생)</button>
       </div>
@@ -602,15 +604,24 @@ $('generateSession').addEventListener('click', () => {
     exp, ctrl,
     played: false,
     tested: false,
-    results: null
+    results: null,
+    note: `${cycleInfo.desc} · 반복 ${repeatCount}회`
   };
   saveSessionToStorage(currentSession);
 
   $('expTag').textContent = exp.length;
   $('ctrlTag').textContent = ctrl.length;
   $('selectedCycleInfo').textContent = `선택된 시점: ${selectedCycle}차 비렘수면 (${cycleInfo.desc}) · 예상 시각: ${cycleInfo.timeStr} · 반복 ${repeatCount}회`;
+  $('sessionNote').value = currentSession.note;
   $('sessionPreview').style.display = 'block';
   toast('세션 생성 완료');
+});
+
+$('sessionNote').addEventListener('input', () => {
+  if (currentSession) {
+    currentSession.note = $('sessionNote').value;
+    saveSessionToStorage(currentSession);
+  }
 });
 
 $('startPlayback').addEventListener('click', async () => {
@@ -818,9 +829,14 @@ function renderLog() {
             <div class="compare-bar"><div class="compare-bar-fill" style="width:${ctrlAcc}%; background:var(--rem-violet)"></div></div>
           </div>
         </div>
+        ${s.note ? `<div class="hint" style="margin-top:8px">${escapeHtml(s.note)}</div>` : ''}
       </div>
     `;
   }).join('');
+}
+
+function escapeHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 $('clearAll').addEventListener('click', () => {
@@ -847,6 +863,7 @@ if (currentSession) {
     const cInfo = CYCLE_OFFSETS_MIN.find(c=>c.n===currentSession.nremCycle);
     $('selectedCycleInfo').textContent = `선택된 시점: ${currentSession.nremCycle}차 비렘수면 (${cInfo?.desc||''}) · 예상 시각: ${currentSession.targetTime} · 반복 ${currentSession.repeatCount||1}회`;
   }
+  $('sessionNote').value = currentSession.note || '';
 }
 </script>
 
